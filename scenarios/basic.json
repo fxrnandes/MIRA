@@ -1,0 +1,28 @@
+{
+  "name": "basic",
+  "description": "Cenário básico 10x10 com corredor obstruído por paredes internas e um foco de fogo central.",
+  "width": 10,
+  "height": 10,
+  "agent_start": [1, 1],
+  "exits": [[8, 8]],
+  "grid": [
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 5, 1, 1, 1, 1, 1, 1, 1, 0],
+    [0, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+    [0, 1, 1, 0, 0, 1, 1, 1, 1, 0],
+    [0, 1, 1, 0, 1, 1, 1, 1, 1, 0],
+    [0, 1, 1, 1, 1, 2, 1, 1, 1, 0],
+    [0, 1, 1, 1, 1, 1, 0, 0, 1, 0],
+    [0, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+    [0, 1, 1, 1, 1, 1, 1, 1, 4, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  ],
+  "cell_legend": {
+    "0": "WALL",
+    "1": "FREE",
+    "2": "FIRE",
+    "3": "SMOKE",
+    "4": "EXIT",
+    "5": "AGENT_START"
+  }
+}

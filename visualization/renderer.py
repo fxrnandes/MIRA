@@ -1,0 +1,185 @@
+"""Renderização pygame com tema escuro, animações e painel de informações."""
+import math
+import pygame
+from world.grid import Grid
+from world.cell import CellType
+from visualization.heatmap import render_heatmap, danger_to_color
+
+CELL  = 60   # pixels por célula
+HUD_H = 68   # altura do painel de info na parte de baixo
+FPS   = 8
+
+# Paleta de cores
+_FREE  = (215, 213, 195)
+_WALL  = (40,  42,  54)
+_SMOKE = (118, 120, 132)
+_START = (200, 198, 180)
+_BG    = (22,  22,  32)
+_HUD   = (16,  16,  26)
+_AGENT = (35,  108, 228)
+_GLOW  = (80,  148, 255)
+_PATH  = (110, 168, 255)
+
+
+class Renderer:
+    def __init__(self, grid: Grid, algorithm: str = "", title: str = "MIRA — Evacuação Inteligente") -> None:
+        pygame.init()
+        self.grid = grid
+        self.algorithm = algorithm
+        w = grid.width * CELL
+        h = grid.height * CELL + HUD_H
+        self.screen = pygame.display.set_mode((w, h))
+        pygame.display.set_caption(title)
+        self.clock = pygame.time.Clock()
+        self._font    = pygame.font.SysFont("segoeui", 16, bold=True)
+        self._font_sm = pygame.font.SysFont("segoeui", 13)
+
+    # ------------------------------------------------------------------ #
+
+    def render(
+        self,
+        agent_pos: tuple[int, int] | None = None,
+        path: list[tuple[int, int]] | None = None,
+        fuzzy_values: dict[tuple[int, int], float] | None = None,
+        step: int = 0,
+        danger: float = 0.0,
+        replans: int = 0,
+    ) -> None:
+        t = pygame.time.get_ticks() / 1000.0
+        self.screen.fill(_BG)
+
+        for y in range(self.grid.height):
+            for x in range(self.grid.width):
+                self._draw_cell(x, y, t)
+
+        if fuzzy_values:
+            render_heatmap(self.screen, fuzzy_values, CELL)
+
+        if path:
+            for px, py in path:
+                cx = px * CELL + CELL // 2
+                cy = py * CELL + CELL // 2
+                pygame.draw.circle(self.screen, _PATH, (cx, cy), 5)
+
+        if agent_pos:
+            self._draw_agent(agent_pos, t)
+
+        self._draw_hud(step, danger, replans)
+        pygame.display.flip()
+        self.clock.tick(FPS)
+
+    # ------------------------------------------------------------------ #
+
+    def _draw_cell(self, x: int, y: int, t: float) -> None:
+        ct  = self.grid.get_cell(x, y)
+        rx  = x * CELL
+        ry  = y * CELL
+        rec = pygame.Rect(rx, ry, CELL - 1, CELL - 1)
+
+        if ct == CellType.FIRE:
+            flicker = 0.5 + 0.5 * math.sin(t * 9.0 + x * 1.7 + y * 1.3)
+            base    = (220, int(38 + flicker * 112), int(flicker * 14))
+            pygame.draw.rect(self.screen, base, rec)
+            # núcleo mais claro
+            inner = rec.inflate(-(CELL // 3), -(CELL // 3))
+            core  = (min(255, base[0] + 28), min(255, base[1] + 72), 0)
+            pygame.draw.rect(self.screen, core, inner)
+
+        elif ct == CellType.EXIT:
+            pulse = 0.6 + 0.4 * math.sin(t * 3.0)
+            g_val = int(148 + pulse * 62)
+            pygame.draw.rect(self.screen, (28, g_val, 52), rec)
+            lbl = self._font.render("S", True, (255, 255, 255))
+            self.screen.blit(lbl, (rx + (CELL - lbl.get_width()) // 2,
+                                   ry + (CELL - lbl.get_height()) // 2))
+
+        elif ct == CellType.SMOKE:
+            pygame.draw.rect(self.screen, _SMOKE, rec)
+            for i in range(3):
+                off = int(math.sin(t * 1.6 + i * 2.1) * 4)
+                sx  = rx + CELL // 5 + i * (CELL // 3) + off
+                sy  = ry + CELL // 2 + off
+                pygame.draw.circle(self.screen, (148, 152, 164), (sx, sy), 4)
+
+        elif ct == CellType.WALL:
+            pygame.draw.rect(self.screen, _WALL, rec)
+            pygame.draw.rect(self.screen, (56, 58, 72), rec, 1)
+
+        elif ct == CellType.AGENT_START:
+            pygame.draw.rect(self.screen, _START, rec)
+
+        else:
+            pygame.draw.rect(self.screen, _FREE, rec)
+
+    def _draw_agent(self, pos: tuple[int, int], t: float) -> None:
+        ax, ay = pos
+        cx = ax * CELL + CELL // 2
+        cy = ay * CELL + CELL // 2
+        r  = CELL // 3
+
+        # halo pulsante
+        glow = pygame.Surface((CELL * 2, CELL * 2), pygame.SRCALPHA)
+        pulse = int(28 + 22 * math.sin(t * 4.5))
+        for i in range(3, 0, -1):
+            pygame.draw.circle(glow, (*_GLOW, pulse // i),
+                               (CELL, CELL), r + i * 6)
+        self.screen.blit(glow, (cx - CELL, cy - CELL))
+
+        # corpo
+        pygame.draw.circle(self.screen, _AGENT, (cx, cy), r)
+        pygame.draw.circle(self.screen, (255, 255, 255), (cx, cy), r, 2)
+        # olho
+        pygame.draw.circle(self.screen, (205, 232, 255),
+                           (cx, cy - r // 3), r // 4)
+
+    def _draw_hud(self, step: int, danger: float, replans: int) -> None:
+        hy = self.grid.height * CELL
+        sw = self.screen.get_width()
+
+        pygame.draw.rect(self.screen, _HUD, (0, hy, sw, HUD_H))
+        pygame.draw.line(self.screen, (52, 54, 72), (0, hy), (sw, hy), 1)
+
+        # — lado esquerdo: algoritmo e passo
+        alg = self.algorithm.replace("_", " ").upper()
+        self.screen.blit(self._font.render(alg, True, (165, 200, 255)), (14, hy + 10))
+        self.screen.blit(
+            self._font_sm.render(f"Passo: {step}   Replans: {replans}",
+                                 True, (140, 140, 175)),
+            (14, hy + 36),
+        )
+
+        # — lado direito: barra de perigo
+        bx = sw // 2 + 50
+        by = hy + 12
+        bw = sw - bx - 55
+        bh = 16
+
+        self.screen.blit(
+            self._font_sm.render("Perigo:", True, (140, 140, 175)),
+            (sw // 2, hy + 14),
+        )
+
+        pygame.draw.rect(self.screen, (48, 50, 65), (bx, by, bw, bh), border_radius=5)
+        fill = int(bw * max(0.0, min(1.0, danger)))
+        if fill > 0:
+            pygame.draw.rect(self.screen, danger_to_color(danger),
+                             (bx, by, fill, bh), border_radius=5)
+        pygame.draw.rect(self.screen, (88, 90, 108), (bx, by, bw, bh), 1, border_radius=5)
+
+        self.screen.blit(
+            self._font_sm.render(f"{int(danger * 100)}%", True, (195, 198, 215)),
+            (bx + bw + 6, by),
+        )
+
+    # ------------------------------------------------------------------ #
+
+    def handle_events(self) -> bool:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return False
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                return False
+        return True
+
+    def close(self) -> None:
+        pygame.quit()

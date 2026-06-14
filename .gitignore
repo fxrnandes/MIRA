@@ -1,0 +1,42 @@
+# Ambientes virtuais
+venv/
+.venv/
+env/
+.env/
+
+# Cache Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+
+# Distribuição e empacotamento
+*.egg-info/
+dist/
+build/
+*.egg
+MANIFEST
+
+# IDEs e editores
+.vscode/
+.idea/
+*.iml
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Pytest e cobertura
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Logs e saídas
+*.log
+*.csv
+reports/
+
+# Jupyter
+.ipynb_checkpoints/
