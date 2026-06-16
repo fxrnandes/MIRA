@@ -80,7 +80,9 @@ class FireAutomaton:
         while queue:
             x, y = queue.popleft()
             for nx, ny in grid.neighbors(x, y):
-                if (nx, ny) not in dist:
+                # Paredes bloqueiam a propagação: o perigo não atravessa
+                # uma parede, então células protegidas por ela ficam seguras.
+                if (nx, ny) not in dist and grid.get_cell(nx, ny) != CellType.WALL:
                     dist[(nx, ny)] = dist[(x, y)] + 1
                     queue.append((nx, ny))
         self._dist_cache = dist

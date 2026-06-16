@@ -7,7 +7,7 @@ from visualization.heatmap import render_heatmap, danger_to_color
 
 CELL  = 60   # pixels por célula
 HUD_H = 68   # altura do painel de info na parte de baixo
-FPS   = 8
+FPS   = 4
 
 # Paleta de cores
 _FREE  = (215, 213, 195)
