@@ -35,6 +35,8 @@ class Agent:
         self.algorithm = algorithm
         self.alpha = alpha
         self.plan: list[tuple[int, int]] = []
+        # True quando não há rota até a saída — agente aguardando resgate.
+        self.awaiting_rescue: bool = False
 
     # ------------------------------------------------------------------ #
     # Loop principal
@@ -71,7 +73,11 @@ class Agent:
             self.plan = path[1:] if path else []
 
         if self.plan:
+            self.awaiting_rescue = False
             return self.plan.pop(0)
+
+        # Sem rota até a saída — recorre ao fallback e sinaliza espera por resgate.
+        self.awaiting_rescue = True
         return self.fallback_move()
 
     def act(self, next_pos: tuple[int, int] | None) -> None:

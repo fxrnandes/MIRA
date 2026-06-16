@@ -112,6 +112,7 @@ def run_episode(args: argparse.Namespace, renderer: Renderer | None) -> str:
                 step=step + 1,
                 danger=current_danger,
                 replans=collector._current.replanning_count,
+                awaiting_rescue=agent.awaiting_rescue,
             )
             event = renderer.handle_events()
             if event == "quit":
@@ -129,14 +130,17 @@ def run_episode(args: argparse.Namespace, renderer: Renderer | None) -> str:
     print("\n" + collector.generate_report())
 
     if renderer:
-        # Mantém a janela aberta até o usuário fechar ou reiniciar
+        # Mantém a janela aberta até o usuário fechar ou reiniciar.
+        # Preserva o mapa de perigo e o aviso de resgate, se aplicável.
+        final_map = compute_fuzzy_map(grid, fire, fuzzy)
         while True:
             event = renderer.handle_events()
             if event == "quit":
                 return "quit"
             if event == "restart":
                 return "restart"
-            renderer.render(agent.position, [], {})
+            renderer.render(agent.position, [], final_map,
+                            awaiting_rescue=agent.awaiting_rescue)
 
     return "done"
 

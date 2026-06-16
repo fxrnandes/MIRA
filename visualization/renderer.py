@@ -7,7 +7,7 @@ from visualization.heatmap import render_heatmap, danger_to_color
 
 CELL  = 60   # pixels por célula
 HUD_H = 68   # altura do painel de info na parte de baixo
-FPS   = 4
+FPS   = 5
 
 # Paleta de cores
 _FREE  = (215, 213, 195)
@@ -45,6 +45,7 @@ class Renderer:
         step: int = 0,
         danger: float = 0.0,
         replans: int = 0,
+        awaiting_rescue: bool = False,
     ) -> None:
         t = pygame.time.get_ticks() / 1000.0
         self.screen.fill(_BG)
@@ -65,9 +66,28 @@ class Renderer:
         if agent_pos:
             self._draw_agent(agent_pos, t)
 
+        if awaiting_rescue:
+            self._draw_rescue_banner(t)
+
         self._draw_hud(step, danger, replans)
         pygame.display.flip()
         self.clock.tick(FPS)
+
+    def _draw_rescue_banner(self, t: float) -> None:
+        """Banner de alerta no topo: sem rota de saída, aguardando resgate."""
+        sw = self.screen.get_width()
+        pulse = 0.5 + 0.5 * math.sin(t * 4.0)
+        bh = 40
+
+        banner = pygame.Surface((sw, bh), pygame.SRCALPHA)
+        banner.fill((180, 40, 40, int(170 + 60 * pulse)))
+        self.screen.blit(banner, (0, 0))
+        pygame.draw.line(self.screen, (255, 120, 120), (0, bh), (sw, bh), 2)
+
+        msg = "⚠ SEM ROTA DE SAÍDA — AGUARDANDO RESGATE"
+        lbl = self._font.render(msg, True, (255, 240, 240))
+        self.screen.blit(lbl, ((sw - lbl.get_width()) // 2,
+                               (bh - lbl.get_height()) // 2))
 
     # ------------------------------------------------------------------ #
 
