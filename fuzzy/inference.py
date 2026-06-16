@@ -26,6 +26,7 @@ class FuzzyInferenceSystem:
         self._sim.input["fire_dist"]   = max(0.0, min(20.0,  fire_dist))
         try:
             self._sim.compute()
-            return float(self._sim.output["danger"])
+            # Universo estendido para saturar nos extremos → clampa a [0, 1].
+            return max(0.0, min(1.0, float(self._sim.output["danger"])))
         except Exception:
             return 0.5

@@ -32,9 +32,17 @@ def build_antecedents():
 
 
 def build_consequent():
-    """Cria a variável de saída: danger (0-1) com 3 termos."""
-    danger = ctrl.Consequent(np.arange(0, 1.01, 0.01), "danger")
-    danger["low"]    = fuzz.trimf(danger.universe, [0,    0,   0.5])
+    """
+    Cria a variável de saída: danger (0-1) com 3 termos.
+
+    O universo é estendido para [-0.3, 1.3] de propósito: com defuzzificação
+    por centroide, triângulos confinados a [0,1] nunca produziriam saída
+    próxima de 0% ou 100% (o centroide do termo extremo ficava preso em
+    ~16,7% e ~83,3%). Estendendo os termos 'low' e 'high' para fora de [0,1],
+    o centroide alcança os extremos; a saída é depois clampada a [0,1].
+    """
+    danger = ctrl.Consequent(np.arange(-0.3, 1.301, 0.01), "danger")
+    danger["low"]    = fuzz.trimf(danger.universe, [-0.3, -0.3, 0.3])
     danger["medium"] = fuzz.trimf(danger.universe, [0.2,  0.5, 0.8])
-    danger["high"]   = fuzz.trimf(danger.universe, [0.5,  1.0, 1.0])
+    danger["high"]   = fuzz.trimf(danger.universe, [0.7,  1.3, 1.3])
     return danger
