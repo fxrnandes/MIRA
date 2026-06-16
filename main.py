@@ -60,10 +60,9 @@ def compute_fuzzy_map(grid, fire, fuzzy) -> dict[tuple[int, int], float]:
     return values
 
 
-def main() -> None:
-    args = parse_args()
-
-    print(f"[MIRA] Carregando cenário: {args.scenario}")
+def run_episode(args: argparse.Namespace, renderer: Renderer | None) -> str:
+    """Executa um episódio. Retorna 'quit' (fechar), 'restart' (reiniciar)
+    ou 'done' (terminou normalmente)."""
     grid = load_scenario(args.scenario)
     start, goal = find_positions(grid)
 
@@ -73,10 +72,15 @@ def main() -> None:
     agent     = Agent(start, goal, grid, fire, fuzzy, collector,
                       algorithm=args.algorithm, alpha=args.alpha)
 
-    renderer = Renderer(grid, algorithm=args.algorithm) if args.visualize else None
-
     print(f"[MIRA] Iniciando — algoritmo: {args.algorithm}, alpha: {args.alpha}")
     print(f"       Posição inicial: {start}  |  Saída: {goal}")
+
+    if renderer:
+        renderer.grid = grid  # janela reaproveitada entre reinícios
+        initial_map = compute_fuzzy_map(grid, fire, fuzzy)
+        action = renderer.wait_for_start(agent.position, initial_map)
+        if action != "running":
+            return action
 
     t0 = time.time()
     success = False
@@ -109,21 +113,47 @@ def main() -> None:
                 danger=current_danger,
                 replans=collector._current.replanning_count,
             )
-            if not renderer.handle_events():
+            event = renderer.handle_events()
+            if event == "quit":
                 print("[MIRA] Simulação encerrada pelo usuário.")
-                break
+                return "quit"
+            if event == "restart":
+                print("[MIRA] Reiniciando simulação.")
+                return "restart"
     else:
         print(f"[MIRA] Limite de {args.max_steps} passos atingido.")
 
     collector.record_execution_time(time.time() - t0)
-    metrics = collector.finish_episode(success, collector._current.steps)
+    collector.finish_episode(success, collector._current.steps)
 
     print("\n" + collector.generate_report())
 
     if renderer:
-        # Mantém a janela aberta até o usuário fechar
-        while renderer.handle_events():
+        # Mantém a janela aberta até o usuário fechar ou reiniciar
+        while True:
+            event = renderer.handle_events()
+            if event == "quit":
+                return "quit"
+            if event == "restart":
+                return "restart"
             renderer.render(agent.position, [], {})
+
+    return "done"
+
+
+def main() -> None:
+    args = parse_args()
+
+    print(f"[MIRA] Carregando cenário: {args.scenario}")
+    renderer = Renderer(load_scenario(args.scenario),
+                        algorithm=args.algorithm) if args.visualize else None
+
+    while True:
+        status = run_episode(args, renderer)
+        if status != "restart":
+            break
+
+    if renderer:
         renderer.close()
 
 

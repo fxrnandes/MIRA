@@ -33,6 +33,7 @@ class Renderer:
         self.clock = pygame.time.Clock()
         self._font    = pygame.font.SysFont("segoeui", 16, bold=True)
         self._font_sm = pygame.font.SysFont("segoeui", 13)
+        self._restart_btn = pygame.Rect(0, 0, 0, 0)  # atualizado em _draw_hud
 
     # ------------------------------------------------------------------ #
 
@@ -171,15 +172,95 @@ class Renderer:
             (bx + bw + 6, by),
         )
 
+        self._draw_restart_button()
+
+    def _draw_restart_button(self) -> None:
+        hy  = self.grid.height * CELL
+        bw, bh = 110, 30
+        bx  = self.screen.get_width() // 2 - bw - 20
+        by  = hy + (HUD_H - bh) // 2
+        self._restart_btn = pygame.Rect(bx, by, bw, bh)
+
+        hover = self._restart_btn.collidepoint(pygame.mouse.get_pos())
+        bg    = (52, 96, 188) if hover else (38, 70, 142)
+        pygame.draw.rect(self.screen, bg, self._restart_btn, border_radius=6)
+        pygame.draw.rect(self.screen, (110, 168, 255), self._restart_btn, 1, border_radius=6)
+
+        lbl = self._font_sm.render("Reiniciar (R)", True, (225, 235, 255))
+        self.screen.blit(lbl, (bx + (bw - lbl.get_width()) // 2,
+                               by + (bh - lbl.get_height()) // 2))
+
+    def wait_for_start(
+        self,
+        agent_pos: tuple[int, int] | None = None,
+        fuzzy_values: dict[tuple[int, int], float] | None = None,
+    ) -> str:
+        """Mostra o estado inicial com um overlay e bloqueia até o usuário
+        apertar qualquer tecla ou clicar. Retorna 'running' para iniciar
+        ou 'quit' se ele fechar a janela / apertar ESC."""
+        font_big = pygame.font.SysFont("segoeui", 34, bold=True)
+        msg   = "Aperte qualquer tecla para iniciar"
+        msg_x = "ESC ou fechar para sair"
+
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return "quit"
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        return "quit"
+                    return "running"
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    return "running"
+
+            t = pygame.time.get_ticks() / 1000.0
+
+            # desenha o cenário de fundo
+            self.screen.fill(_BG)
+            for y in range(self.grid.height):
+                for x in range(self.grid.width):
+                    self._draw_cell(x, y, t)
+            if fuzzy_values:
+                render_heatmap(self.screen, fuzzy_values, CELL)
+            if agent_pos:
+                self._draw_agent(agent_pos, t)
+            self._draw_hud(0, 0.0, 0)
+
+            # véu escuro por cima
+            sw, sh = self.screen.get_size()
+            veil = pygame.Surface((sw, sh), pygame.SRCALPHA)
+            veil.fill((10, 10, 18, 170))
+            self.screen.blit(veil, (0, 0))
+
+            # texto pulsante
+            pulse = 0.6 + 0.4 * math.sin(t * 3.0)
+            color = (int(180 + 75 * pulse), int(200 + 55 * pulse), 255)
+            label = font_big.render(msg, True, color)
+            self.screen.blit(label, ((sw - label.get_width()) // 2,
+                                     (sh - label.get_height()) // 2 - 18))
+            sub = self._font_sm.render(msg_x, True, (150, 152, 175))
+            self.screen.blit(sub, ((sw - sub.get_width()) // 2,
+                                   (sh - label.get_height()) // 2 + 28))
+
+            pygame.display.flip()
+            self.clock.tick(FPS)
+
     # ------------------------------------------------------------------ #
 
-    def handle_events(self) -> bool:
+    def handle_events(self) -> str:
+        """Retorna 'running', 'quit' ou 'restart'."""
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                return False
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                return False
-        return True
+                return "quit"
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    return "quit"
+                if event.key == pygame.K_r:
+                    return "restart"
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if self._restart_btn.collidepoint(event.pos):
+                    return "restart"
+        return "running"
 
     def close(self) -> None:
         pygame.quit()
